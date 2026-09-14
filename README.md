@@ -21,6 +21,16 @@ uvicorn app.main:app --reload
 
 이 프로젝트의 정적 화면은 `app/static`에 있습니다. 저장소 루트의 `wrangler.toml`이 이 디렉터리를 자산 전용 Cloudflare 배포 대상으로 지정하므로 Cloudflare Pages/Workers에서 `npx wrangler deploy`를 실행할 수 있습니다. 자산 전용 배포에서는 `binding`을 설정하지 않습니다.
 
+Cloudflare 정적 주소에는 FastAPI 라우트(`/api/regions`, `/api/dashboard` 등)가 존재하지 않습니다. 따라서 FastAPI를 Render, Railway, Fly.io 또는 별도 서버에 배포한 뒤 `app/static/api-config.js`의 `window.REAL_ESTATE_API_URL`에 그 주소를 입력해야 합니다.
+
+예:
+
+```javascript
+window.REAL_ESTATE_API_URL = "https://your-fastapi-service.example.com";
+```
+
+FastAPI에는 Cloudflare 정적 도메인에서 호출할 수 있도록 CORS를 활성화했습니다. 운영 배포에서는 필요하면 `allow_origins`를 실제 Cloudflare 도메인으로 제한하세요.
+
 > 주의: Cloudflare 정적 배포는 HTML/CSS/JavaScript 화면만 배포합니다. FastAPI와 Python API는 별도 서버에 배포해야 하며, 정적 화면의 API 주소를 운영 서버 주소로 설정하는 작업이 추가로 필요합니다.
 
 ## 무료 API 연결 위치

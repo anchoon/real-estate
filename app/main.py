@@ -8,6 +8,7 @@ import httpx
 from dotenv import load_dotenv
 from urllib.parse import unquote
 from fastapi import FastAPI, Query
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -31,6 +32,13 @@ app = FastAPI(
     title="집찾기 허브 API",
     description="공식·허가된 부동산 실거래와 경매 데이터를 한 화면에 제공하는 API",
     version="1.0.0",
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 
