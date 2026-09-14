@@ -29,6 +29,16 @@ Cloudflare 정적 주소에는 FastAPI 라우트(`/api/regions`, `/api/dashboard
 window.REAL_ESTATE_API_URL = "https://your-fastapi-service.example.com";
 ```
 
+배포 후 브라우저 개발자 도구에 `/api/map-config` 또는 `/api/regions` 404가 보이면
+FastAPI가 아니라 Cloudflare 정적 자산 주소로 API를 호출하고 있는 상태입니다.
+`app/static/api-config.js`의 `REAL_ESTATE_API_URL`을 실제 FastAPI HTTPS 주소로 바꾸고
+다시 배포하세요. FastAPI 서버에는 `/api/map-config`, `/api/regions`, `/api/dashboard`가
+모두 있어야 하며, 정적 사이트 도메인을 CORS 허용 목록에 추가해야 합니다.
+
+지도만 별도 정적 배포에서 표시해야 하고 FastAPI의 `/api/map-config`를 호출할 수 없다면,
+`api-config.js`에 HTTP referrer 제한을 건 공개 Google Maps 키를 설정할 수 있습니다.
+그래도 실거래·검색 API를 사용하려면 `REAL_ESTATE_API_URL`은 반드시 필요합니다.
+
 FastAPI에는 Cloudflare 정적 도메인에서 호출할 수 있도록 CORS를 활성화했습니다. 운영 배포에서는 필요하면 `allow_origins`를 실제 Cloudflare 도메인으로 제한하세요.
 
 > 주의: Cloudflare 정적 배포는 HTML/CSS/JavaScript 화면만 배포합니다. FastAPI와 Python API는 별도 서버에 배포해야 하며, 정적 화면의 API 주소를 운영 서버 주소로 설정하는 작업이 추가로 필요합니다.
