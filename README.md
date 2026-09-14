@@ -20,6 +20,7 @@ uvicorn app.main:app --reload
 ## 무료 API 연결 위치
 
 - `app/api_config.py`: 모든 키·URL·타임아웃을 한곳에서 관리합니다.
+- `.env`: `GOOGLE_MAPS_API_KEY`에 Google Maps JavaScript API 키를 입력하면 위성지도와 실거래 마커 오버레이가 활성화됩니다.
 - `.env`: `DATA_GO_KR_KEY`에 공공데이터포털 일반 인증키를 입력합니다.
 - `.env`: `DEFAULT_LAWD_CD`에 시군구 법정동 코드 5자리, `DEFAULT_DEAL_YMD`에 조회 년월(YYYYMM)을 입력합니다. 예: 마포구 `11440`, 2026년 9월 `202609`.
 - `app/main.py`의 `fetch_official_data()`와 `_parse_transactions()`가 국토교통부 아파트 매매 실거래가 API 호출·변환을 담당합니다.
@@ -36,6 +37,18 @@ uvicorn app.main:app --reload
 4. `DEFAULT_LAWD_CD`와 `DEFAULT_DEAL_YMD`를 바꾸고 서버를 재시작합니다.
 
 검색이 발생하면 `GET /api/search?q=마포`가 실행되고 `search_logs`에 검색 1건, 결과 아파트마다 `property_search_counts.search_count`가 누적됩니다. `GET /api/search-stats`에서 통계를 확인할 수 있습니다. 대시보드의 지역별·관할구별·아파트별 집계는 현재 API 응답 행에서 실시간 계산됩니다.
+
+## 위성지도 오버레이
+
+1. [Google Cloud Console](https://console.cloud.google.com/)에서 프로젝트를 만들고 `Maps JavaScript API`와 `Geocoding API`를 활성화합니다.
+2. API 키를 만들고 웹사이트 제한에 `http://localhost:8000/*`, `http://127.0.0.1:8000/*`를 등록합니다.
+3. `real_estate_hub/.env`에 입력합니다.
+
+```env
+GOOGLE_MAPS_API_KEY=발급받은_구글_지도_키
+```
+
+지도는 위성 레이어로 표시되고, 국토부 실거래 응답의 주소를 Google Geocoder로 변환해 거래 마커를 표시합니다. Google 키가 없으면 지도 외의 검색·실거래 기능은 계속 작동하며 지도에는 설정 안내가 표시됩니다. Google Maps 키는 브라우저에 전달되므로 반드시 HTTP referrer 제한을 설정하세요.
 
 ## 지역 조회 방식
 

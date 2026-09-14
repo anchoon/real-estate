@@ -63,3 +63,10 @@ def test_nearby_requires_reverse_geocoding_key_without_calling_external_api():
     response = client.get("/api/nearby", params={"lat": 37.5665, "lon": 126.9780})
     assert response.status_code == 200
     assert "items" in response.json()
+
+
+def test_map_config_is_safe_without_google_key():
+    response = client.get("/api/map-config")
+    assert response.status_code == 200
+    assert response.json()["provider"] == "google"
+    assert isinstance(response.json()["satellite"], bool)

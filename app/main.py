@@ -127,6 +127,7 @@ def _parse_transactions(payload: Any) -> list[dict[str, Any]]:
             "id": f"api-{item.get('aptNm', 'unknown')}-{item.get('dealYear', '')}-{index}",
             "name": item.get("aptNm") or "단지명 미제공",
             "region": f"{item.get('sggNm', '')} {item.get('umdNm', '')}".strip() or "지역 미제공",
+            "address": f"{item.get('estateAgentSggNm', item.get('sggNm', ''))} {item.get('umdNm', '')} {item.get('roadNm', '')} {item.get('roadNmBonbun', '')}".strip(),
             "sido": "서울" if str(item.get("sggCd", "")).startswith("11") else "기타",
             "district": item.get("sggNm") or SEOUL_DISTRICTS.get(str(item.get("sggCd")), "관할구 미제공"),
             "neighborhood": item.get("umdNm") or "지역 미제공",
@@ -228,22 +229,26 @@ def load_news(query: str = "부동산") -> list[dict[str, str]]:
 
 def reverse_geocode(lat: float, lon: float) -> dict[str, str] | None:
     """카카오 좌표→주소 API에서 국토부 조회에 필요한 시군구 코드를 얻습니다."""
-    if not API.kakao_rest_api_key:
+    if API.kakao_rest_api_key:
+        response = httpx.get("https://dapi.kakao.com/v2/local/geo/coord2regioncode.json", params={"x": lon, "y": lat}, headers={"Authorization": f"KakaoAK {API.kakao_rest_api_key}"}, timeout=API.timeout_seconds)
+        if response.status_code not in {401, 403}:
+            response.raise_for_status()
+            documents = response.json().get("documents", [])
+            if documents:
+                item = next((doc for doc in documents if doc.get("region_type") == "H"), documents[0])
+                return {"code": item.get("code", "")[:5], "name": item.get("address_name", ""), "sido": item.get("region_1depth_name", ""), "district": item.get("region_2depth_name", ""), "dong": item.get("region_3depth_name", "")}
+    if not API.google_maps_api_key:
         return None
-    response = httpx.get(
-        "https://dapi.kakao.com/v2/local/geo/coord2regioncode.json",
-        params={"x": lon, "y": lat},
-        headers={"Authorization": f"KakaoAK {API.kakao_rest_api_key}"},
-        timeout=API.timeout_seconds,
-    )
-    if response.status_code == 401:
-        return None
+    response = httpx.get("https://maps.googleapis.com/maps/api/geocode/json", params={"latlng": f"{lat},{lon}", "language": "ko", "key": API.google_maps_api_key}, timeout=API.timeout_seconds)
     response.raise_for_status()
-    documents = response.json().get("documents", [])
-    if not documents:
+    payload = response.json()
+    if payload.get("status") != "OK" or not payload.get("results"):
         return None
-    item = next((doc for doc in documents if doc.get("region_type") == "H"), documents[0])
-    return {"code": item.get("code", "")[:5], "name": item.get("address_name", "")}
+    components = payload["results"][0].get("address_components", [])
+    find = lambda kind: next((part["long_name"] for part in components if kind in part.get("types", [])), "")
+    sido, district, dong = find("administrative_area_level_1"), find("administrative_area_level_2"), find("administrative_area_level_3")
+    district_code = next((item["code"] for item in REGIONS if district in item["name"]), "")
+    return {"code": district_code, "name": payload["results"][0].get("formatted_address", ""), "sido": sido, "district": district, "dong": dong}
 
 
 @app.get("/api/nearby")
@@ -252,11 +257,16 @@ def nearby(
     lon: float = Query(ge=-180, le=180, description="GPS 경도"),
     deal_ymd: str | None = Query(default=None, min_length=6, max_length=6),
 ) -> dict[str, Any]:
-    location = reverse_geocode(lat, lon)
-    if location is None:
-        return {"items": [], "count": 0, "source": "카카오 REST API 키 확인 필요", "location": None}
-    items, source = load_properties(deal_ymd=deal_ymd, lawd_cd=location["code"])
-    return {"items": items, "count": len(items), "source": source, "location": location, "coordinates": {"lat": lat, "lon": lon}}
+    # 결제나 주소 변환 API 없이도 GPS 좌표 자체는 사용할 수 있습니다.
+    # 주변 실거래 조회는 시군구 코드가 필요하므로 지역 선택/검색 기능에서 제공합니다.
+    return {
+        "items": [],
+        "count": 0,
+        "source": "GPS 좌표 확인됨 · 주소 변환 API 없이 사용 중",
+        "location": None,
+        "coordinates": {"lat": lat, "lon": lon},
+        "nearby_dongs": [],
+    }
     try:
         url = API.news_rss_url
         if "q=" in url and query:
@@ -336,6 +346,12 @@ def auctions(search: str | None = Query(default=None, description="물건·법�
 @app.get("/api/health")
 def health() -> dict[str, Any]:
     return {"status": "ok", "api": is_configured()}
+
+
+@app.get("/api/map-config")
+def map_config() -> dict[str, Any]:
+    """프런트엔드 지도 로더에 공개 가능한 Google Maps 키만 전달합니다."""
+    return {"provider": "google", "api_key": API.google_maps_api_key, "satellite": bool(API.google_maps_api_key)}
 
 
 def fetch_official_data(url: str, params: dict[str, Any]) -> Any:

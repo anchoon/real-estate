@@ -68,6 +68,9 @@ class ApiConfig:
     # GPS 좌표를 시군구 코드로 바꾸는 카카오 로컬 REST API 키
     kakao_rest_api_key: str = _env("KAKAO_REST_API_KEY")
 
+    # Google Maps JavaScript API 키: 위성지도 렌더링용
+    google_maps_api_key: str = _env("GOOGLE_MAPS_API_KEY")
+
     # MongoDB Atlas 무료 M0 연결 문자열
     mongo_uri: str = _env("MONGODB_URI")
     mongo_database: str = _env("MONGODB_DATABASE", "real_estate_hub")
@@ -83,5 +86,6 @@ def is_configured() -> dict[str, bool]:
         "transaction_api": bool(API.data_go_kr_key),
         "auction_api": bool(API.data_go_kr_key and API.auction_url),
         "search_database": bool(API.mongo_uri),
-        "gps_reverse_geocoding": bool(API.kakao_rest_api_key),
+        "gps_reverse_geocoding": bool(API.kakao_rest_api_key or API.google_maps_api_key),
+        "satellite_map": bool(API.google_maps_api_key),
     }
