@@ -70,3 +70,9 @@ def test_map_config_is_safe_without_google_key():
     assert response.status_code == 200
     assert response.json()["provider"] == "google"
     assert isinstance(response.json()["satellite"], bool)
+
+
+def test_frontend_api_config_script_is_available():
+    response = client.get("/api-config.js")
+    assert response.status_code == 200
+    assert "REAL_ESTATE_API_URL" in response.text

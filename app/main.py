@@ -303,6 +303,11 @@ def javascript() -> FileResponse:
     return FileResponse(BASE_DIR / "static" / "app.js", media_type="application/javascript")
 
 
+@app.get("/api-config.js", include_in_schema=False)
+def api_config_script() -> FileResponse:
+    return FileResponse(BASE_DIR / "static" / "api-config.js", media_type="application/javascript")
+
+
 @app.get("/api/dashboard")
 def dashboard(
     lawd_cd: str | None = Query(default=None, min_length=5, max_length=10, description="시군구 법정동코드 또는 전국"),
