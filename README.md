@@ -17,6 +17,12 @@ uvicorn app.main:app --reload
 
 브라우저에서 `http://127.0.0.1:8000`을 엽니다. API 문서는 `/docs`입니다.
 
+## Cloudflare 정적 배포
+
+이 프로젝트의 정적 화면은 `app/static`에 있습니다. 저장소 루트의 `wrangler.toml`이 이 디렉터리를 Cloudflare Assets로 지정하므로 Cloudflare Pages/Workers에서 `npx wrangler deploy`를 실행할 수 있습니다.
+
+> 주의: Cloudflare 정적 배포는 HTML/CSS/JavaScript 화면만 배포합니다. FastAPI와 Python API는 별도 서버에 배포해야 하며, 정적 화면의 API 주소를 운영 서버 주소로 설정하는 작업이 추가로 필요합니다.
+
 ## 무료 API 연결 위치
 
 - `app/api_config.py`: 모든 키·URL·타임아웃을 한곳에서 관리합니다.
