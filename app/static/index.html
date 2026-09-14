@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>집찾기 허브 | 부동산 통합 대시보드</title><link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar"><div class="brand"><span class="brand-mark">⌂</span><div><strong>집찾기 허브</strong><small>PROPERTY INTELLIGENCE</small></div></div><div class="topbar-tools"><button id="gps-button" class="gps-button" type="button">⌖ 내 주변 매물</button><label class="global-search"><span>⌕</span><strong>통합검색</strong><input id="search" placeholder="시·도, 구, 동, 단지명 검색"><button id="search-button" type="button">검색</button></label><span class="live"><i></i> <span id="connection-status">공식 API 연결 확인 중</span></span></div></header>
+    <section class="hero"><div><p class="kicker">REAL ESTATE / AUCTION / INSIGHT</p><h1>내 집 찾기부터<br><em>경매 기회까지</em> 한눈에</h1><p>흩어진 부동산 정보를 한 화면에서 비교하고, 나에게 맞는 기회를 빠르게 발견하세요.</p></div><div class="hero-shape"><span>Today’s<br><b>market</b><br>briefing</span></div></section>
+    <section class="metrics"><article><span>전체 매물</span><b id="property-count">-</b><small>건 · 최근 실거래</small></article><article><span>경매 진행 물건</span><b id="auction-count">-</b><small>건 · 입찰 예정 포함</small></article><article class="highlight"><span>평균 낙찰 할인율</span><b id="avg-discount">-</b><small>감정가 대비 최저입찰가</small></article><article><span>누적 검색 횟수</span><b id="search-count">0</b><small>MongoDB 기록 기준</small></article></section>
+    <nav class="tabs"><button class="active" data-tab="overview">전체 브리핑</button><button data-tab="properties">실거래·매물</button><button data-tab="auctions">경매 물건</button><span class="source-note" id="data-source">API 응답 대기 중</span></nav>
+    <section id="overview" class="tab-panel"><div class="section-head"><div><p class="kicker">CURATED FOR YOU</p><h2>오늘의 부동산 브리핑</h2></div></div><div class="query-bar"><label>시·도<select id="sido"></select></label><label>관할구<select id="district"><option value="">전체 구</option></select></label><label>동<select id="dong"><option value="">전체 동</option></select></label><label>계약 년월<input id="deal-ymd" value="202609" inputmode="numeric" maxlength="6" placeholder="YYYYMM"></label><button id="apply-filter">조회하기</button></div><div class="columns"><div class="card large"><div class="card-title"><h3>최근 실거래</h3><button data-tab-link="properties">전체 보기 →</button></div><div id="property-list" class="list"></div></div><div class="card large dark"><div class="card-title"><h3>경매 API 상태</h3><button data-tab-link="auctions">상세 보기 →</button></div><div id="auction-list" class="auction-list"></div></div></div></section>
+    <section class="analysis-grid"><div class="card"><div class="card-title"><h3>지역별 거래 건수·가격</h3></div><div id="region-summary" class="summary-list"></div></div><div class="card"><div class="card-title"><h3>관할구별 거래 건수</h3></div><div id="district-summary" class="summary-list"></div></div><div class="card"><div class="card-title"><h3>아파트별 가격</h3></div><div id="apartment-summary" class="summary-list"></div></div></section>
+    <section class="card search-results"><div class="card-title"><h3>통합검색 결과</h3><span id="result-count" class="item-meta">검색어를 입력하세요.</span></div><div id="search-results-list" class="result-stream"></div></section>
+    <section class="card nearby-results"><div class="card-title"><h3>내 주변 실거래</h3><span id="nearby-location" class="item-meta">위치 권한을 허용하면 표시됩니다.</span></div><div id="nearby-list" class="result-stream"></div></section>
+    <section class="card news-panel"><div class="card-title"><h3>오늘의 부동산 브리핑 뉴스</h3><span class="item-meta">공개 RSS</span></div><div id="news-list" class="news-list"><p class="item-meta">뉴스를 불러오는 중...</p></div></section>
+    <section id="properties" class="tab-panel hidden"><div class="section-head"><div><p class="kicker">TRANSACTION DATA</p><h2>실거래·매물 탐색</h2></div></div><div class="card"><div id="property-table"></div></div></section>
+    <section id="auctions" class="tab-panel hidden"><div class="section-head"><div><p class="kicker">COURT AUCTION</p><h2>경매 물건 탐색</h2></div></div><div class="card"><div id="auction-table"></div></div></section>
+    <footer><span>ⓘ 화면의 매물·가격·집계는 설정한 공식 API 응답에서 계산됩니다.</span><a href="/docs">API 문서 열기 ↗</a></footer>
+  </main><script src="/static/app.js"></script>
+</body></html>
