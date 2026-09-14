@@ -19,7 +19,7 @@ uvicorn app.main:app --reload
 
 ## Cloudflare 정적 배포
 
-이 프로젝트의 정적 화면은 `app/static`에 있습니다. 저장소 루트의 `wrangler.toml`이 이 디렉터리를 Cloudflare Assets로 지정하므로 Cloudflare Pages/Workers에서 `npx wrangler deploy`를 실행할 수 있습니다.
+이 프로젝트의 정적 화면은 `app/static`에 있습니다. 저장소 루트의 `wrangler.toml`이 이 디렉터리를 자산 전용 Cloudflare 배포 대상으로 지정하므로 Cloudflare Pages/Workers에서 `npx wrangler deploy`를 실행할 수 있습니다. 자산 전용 배포에서는 `binding`을 설정하지 않습니다.
 
 > 주의: Cloudflare 정적 배포는 HTML/CSS/JavaScript 화면만 배포합니다. FastAPI와 Python API는 별도 서버에 배포해야 하며, 정적 화면의 API 주소를 운영 서버 주소로 설정하는 작업이 추가로 필요합니다.
 

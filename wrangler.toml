@@ -3,4 +3,3 @@ compatibility_date = "2026-09-15"
 
 [assets]
 directory = "./app/static"
-binding = "ASSETS"
