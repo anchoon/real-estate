@@ -5,4 +5,3 @@ window.REAL_ESTATE_API_URL = "https://real-estate-txyq.onrender.com";
 
 // 선택 사항: FastAPI의 /api/map-config를 사용할 수 없는 정적 배포에서만
 // Google Maps JavaScript API용 공개 키를 입력하세요. HTTP referrer 제한을 꼭 설정하세요.
-// window.REAL_ESTATE_MAPS_API_KEY = "AIza...";

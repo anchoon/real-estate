@@ -1,6 +1,6 @@
 const state = { properties: [], auctions: [] };
-const API_BASE_URL = (window.REAL_ESTATE_API_URL || '').replace(/\/$/, '');
 const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+const API_BASE_URL = isLocalHost ? '' : (window.REAL_ESTATE_API_URL || '').replace(/\/$/, '');
 const apiFetch = async (path, options) => {
 	const response = await fetch(`${API_BASE_URL}${path}`, options);
 	if (!response.ok) throw new Error(`API ${response.status}: ${path}`);
