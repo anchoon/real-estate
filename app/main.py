@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from math import asin, cos, radians, sin, sqrt
 from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree
@@ -7,10 +8,11 @@ from xml.etree import ElementTree
 import httpx
 from dotenv import load_dotenv
 from urllib.parse import parse_qsl, unquote, urlencode, urlsplit, urlunsplit
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
 BASE_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = BASE_DIR.parent
@@ -27,6 +29,11 @@ try:
     from .search_store import record_search, search_stats
 except ImportError:
     from search_store import record_search, search_stats
+
+try:
+    from .community_store import create_post, list_posts
+except ImportError:
+    from community_store import create_post, list_posts
 
 app = FastAPI(
     title="집찾기 허브 API",
@@ -251,7 +258,7 @@ def load_news(query: str = "부동산") -> list[dict[str, str]]:
 
 
 def reverse_geocode(lat: float, lon: float) -> dict[str, str] | None:
-    """카카오 좌표→주소 API에서 국토부 조회에 필요한 시군구 코드를 얻습니다."""
+    """좌표의 도로명/건물명과 국토부 조회에 필요한 시군구 코드를 얻습니다."""
     if API.kakao_rest_api_key:
         response = httpx.get("https://dapi.kakao.com/v2/local/geo/coord2regioncode.json", params={"x": lon, "y": lat}, headers={"Authorization": f"KakaoAK {API.kakao_rest_api_key}"}, timeout=API.timeout_seconds)
         if response.status_code not in {401, 403}:
@@ -259,7 +266,17 @@ def reverse_geocode(lat: float, lon: float) -> dict[str, str] | None:
             documents = response.json().get("documents", [])
             if documents:
                 item = next((doc for doc in documents if doc.get("region_type") == "H"), documents[0])
-                return {"code": item.get("code", "")[:5], "name": item.get("address_name", ""), "sido": item.get("region_1depth_name", ""), "district": item.get("region_2depth_name", ""), "dong": item.get("region_3depth_name", "")}
+                address = item.get("address_name", "")
+                building = "" 
+                detail = httpx.get("https://dapi.kakao.com/v2/local/geo/coord2address.json", params={"x": lon, "y": lat}, headers={"Authorization": f"KakaoAK {API.kakao_rest_api_key}"}, timeout=API.timeout_seconds)
+                if detail.status_code not in {401, 403}:
+                    detail.raise_for_status()
+                    docs = detail.json().get("documents", [])
+                    if docs:
+                        road = docs[0].get("road_address") or {}
+                        building = road.get("building_name", "")
+                        address = road.get("address_name") or docs[0].get("address", {}).get("address_name") or address
+                return {"code": item.get("code", "")[:5], "name": address, "address": address, "building_name": building, "sido": item.get("region_1depth_name", ""), "district": item.get("region_2depth_name", ""), "dong": item.get("region_3depth_name", "")}
     if not API.google_maps_api_key:
         return None
     response = httpx.get("https://maps.googleapis.com/maps/api/geocode/json", params={"latlng": f"{lat},{lon}", "language": "ko", "key": API.google_maps_api_key}, timeout=API.timeout_seconds)
@@ -271,7 +288,34 @@ def reverse_geocode(lat: float, lon: float) -> dict[str, str] | None:
     find = lambda kind: next((part["long_name"] for part in components if kind in part.get("types", [])), "")
     sido, district, dong = find("administrative_area_level_1"), find("administrative_area_level_2"), find("administrative_area_level_3")
     district_code = next((item["code"] for item in REGIONS if district in item["name"]), "")
-    return {"code": district_code, "name": payload["results"][0].get("formatted_address", ""), "sido": sido, "district": district, "dong": dong}
+    address = payload["results"][0].get("formatted_address", "")
+    return {"code": district_code, "name": address, "address": address, "building_name": "", "sido": sido, "district": district, "dong": dong}
+
+
+def geocode_address(query: str) -> dict[str, Any] | None:
+    """카카오 또는 Google 공식 지오코딩 API로 주소/장소를 좌표로 변환합니다."""
+    if API.kakao_rest_api_key:
+        headers = {"Authorization": f"KakaoAK {API.kakao_rest_api_key}"}
+        for endpoint in ("search/address.json", "search/keyword.json"):
+            response = httpx.get(f"https://dapi.kakao.com/v2/local/{endpoint}", params={"query": query}, headers=headers, timeout=API.timeout_seconds)
+            if response.status_code in {401, 403}:
+                break
+            response.raise_for_status()
+            documents = response.json().get("documents", [])
+            if documents:
+                item = documents[0]
+                address = item.get("address") or item.get("road_address") or {}
+                road = item.get("road_address") or {}
+                return {"lat": float(item.get("y") or address.get("y")), "lon": float(item.get("x") or address.get("x")), "name": item.get("place_name") or road.get("building_name") or query, "address": road.get("address_name") or address.get("address_name") or item.get("address_name") or query, "building_name": road.get("building_name", "")}
+    if API.google_maps_api_key:
+        response = httpx.get("https://maps.googleapis.com/maps/api/geocode/json", params={"address": query, "language": "ko", "key": API.google_maps_api_key}, timeout=API.timeout_seconds)
+        response.raise_for_status()
+        payload = response.json()
+        if payload.get("status") == "OK" and payload.get("results"):
+            item = payload["results"][0]
+            point = item["geometry"]["location"]
+            return {"lat": point["lat"], "lon": point["lng"], "name": item.get("formatted_address", query), "address": item.get("formatted_address", query), "building_name": ""}
+    return None
 
 
 @app.get("/api/nearby")
@@ -280,16 +324,141 @@ def nearby(
     lon: float = Query(ge=-180, le=180, description="GPS 경도"),
     deal_ymd: str | None = Query(default=None, min_length=6, max_length=6),
 ) -> dict[str, Any]:
-    # 결제나 주소 변환 API 없이도 GPS 좌표 자체는 사용할 수 있습니다.
-    # 주변 실거래 조회는 시군구 코드가 필요하므로 지역 선택/검색 기능에서 제공합니다.
+    try:
+        location = reverse_geocode(lat, lon)
+    except (httpx.HTTPError, ValueError, KeyError, TypeError):
+        location = None
+    items: list[dict[str, Any]] = []
+    source = "GPS 좌표 확인됨 · 주소 변환 API 설정 필요"
+    if location:
+        source = "GPS 주소 확인됨"
+        if location.get("code") and API.data_go_kr_key:
+            items, transaction_source = load_properties(lawd_cd=location["code"], deal_ymd=deal_ymd, dong=location.get("dong") or None)
+            source = f"{location.get('name') or '현재 위치'} · {transaction_source}"
     return {
-        "items": [],
-        "count": 0,
-        "source": "GPS 좌표 확인됨 · 주소 변환 API 없이 사용 중",
-        "location": None,
+        "items": items,
+        "count": len(items),
+        "source": source,
+        "location": location,
         "coordinates": {"lat": lat, "lon": lon},
-        "nearby_dongs": [],
+        "nearby_dongs": [location["dong"]] if location and location.get("dong") else [],
     }
+
+
+PLACE_CATEGORIES = {
+    "school": {"tag": "amenity", "values": "school|kindergarten", "label": "학교·유치원"},
+    "park": {"tag": "leisure", "values": "park|playground", "label": "공원·놀이터"},
+    "library": {"tag": "amenity", "values": "library", "label": "도서관"},
+    "medical": {"tag": "amenity", "values": "hospital|clinic|doctors|pharmacy", "label": "병원·약국"},
+}
+
+
+def _distance_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> int:
+    """두 좌표 사이의 거리를 미터로 계산합니다."""
+    lat_delta = radians(lat2 - lat1)
+    lon_delta = radians(lon2 - lon1)
+    value = sin(lat_delta / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(lon_delta / 2) ** 2
+    return round(6_371_000 * 2 * asin(sqrt(min(1.0, value))))
+
+
+def _parse_nearby_places(payload: Any, lat: float, lon: float, category: str) -> list[dict[str, Any]]:
+    """Overpass 응답을 화면에 표시할 이름·좌표·거리로 정리합니다."""
+    category_info = PLACE_CATEGORIES[category]
+    places = []
+    for element in payload.get("elements", []):
+        tags = element.get("tags") or {}
+        point = element if "lat" in element and "lon" in element else element.get("center") or {}
+        if "lat" not in point or "lon" not in point:
+            continue
+        place_lat, place_lon = float(point["lat"]), float(point["lon"])
+        address = " ".join(filter(None, (
+            tags.get("addr:city") or tags.get("addr:district"),
+            tags.get("addr:street"),
+            tags.get("addr:housenumber"),
+        )))
+        places.append({
+            "id": f"{element.get('type', 'place')}-{element.get('id', len(places))}",
+            "name": tags.get("name") or f"이름이 등록되지 않은 {category_info['label']}",
+            "category": category_info["label"],
+            "lat": place_lat,
+            "lon": place_lon,
+            "distance_m": _distance_meters(lat, lon, place_lat, place_lon),
+            "address": address,
+        })
+    return sorted(places, key=lambda place: place["distance_m"])[:20]
+
+
+@app.get("/api/nearby-places")
+def nearby_places(
+    lat: float = Query(ge=-90, le=90, description="GPS 위도"),
+    lon: float = Query(ge=-180, le=180, description="GPS 경도"),
+    category: str = Query(default="school", description="school, park, library, medical 중 하나"),
+) -> dict[str, Any]:
+    if category not in PLACE_CATEGORIES:
+        raise HTTPException(status_code=422, detail="지원하지 않는 장소 종류입니다.")
+    radius_m = 1500
+    category_info = PLACE_CATEGORIES[category]
+    clauses = "\n".join(
+        f'{element}(around:{radius_m},{lat},{lon})["{category_info["tag"]}"~"{category_info["values"]}"];'
+        for element in ("node", "way", "relation")
+    )
+    query = f"[out:json][timeout:15];({clauses});out center 60;"
+    try:
+        response = httpx.post(
+            "https://overpass-api.de/api/interpreter",
+            data={"data": query},
+            headers={"User-Agent": "real-estate-hub/1.0 (nearby places)"},
+            timeout=max(API.timeout_seconds, 15),
+        )
+        response.raise_for_status()
+        items = _parse_nearby_places(response.json(), lat, lon, category)
+    except (httpx.HTTPError, ValueError, KeyError, TypeError):
+        raise HTTPException(status_code=502, detail="주변 장소를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.") from None
+    return {
+        "items": items,
+        "count": len(items),
+        "category": category,
+        "radius_m": radius_m,
+        "source": "OpenStreetMap 기여자 데이터",
+    }
+
+
+@app.get("/api/geocode")
+def geocode(q: str = Query(min_length=2, max_length=100, description="주소 또는 건물명")) -> dict[str, Any]:
+    try:
+        location = geocode_address(q.strip())
+    except (httpx.HTTPError, ValueError, KeyError, TypeError):
+        location = None
+    if not location:
+        raise HTTPException(status_code=404, detail="주소나 건물 위치를 찾지 못했습니다. 더 자세한 주소로 다시 검색해 주세요.")
+    return {"location": location}
+
+
+class CommunityPostInput(BaseModel):
+    nickname: str = Field(default="익명", min_length=1, max_length=20)
+    title: str = Field(min_length=1, max_length=80)
+    content: str = Field(min_length=1, max_length=3000)
+
+
+@app.get("/api/community/posts")
+def community_posts(limit: int = Query(default=20, ge=1, le=50), skip: int = Query(default=0, ge=0)) -> dict[str, Any]:
+    try:
+        posts, count = list_posts(limit=limit, skip=skip)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="게시판 DB에 연결할 수 없습니다. MONGODB_URI 설정을 확인해 주세요.") from exc
+    return {"items": posts, "count": count, "connected": True}
+
+
+@app.post("/api/community/posts", status_code=201)
+def add_community_post(post: CommunityPostInput) -> dict[str, Any]:
+    nickname, title, content = post.nickname.strip(), post.title.strip(), post.content.strip()
+    if not nickname or not title or not content:
+        raise HTTPException(status_code=422, detail="이름, 제목, 내용을 입력해 주세요.")
+    try:
+        saved = create_post(nickname=nickname, title=title, content=content)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="게시글을 저장하지 못했습니다. MongoDB 연결을 확인해 주세요.") from exc
+    return {"item": saved, "connected": True}
 
 
 @app.get("/", include_in_schema=False)

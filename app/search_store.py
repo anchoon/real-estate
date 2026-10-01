@@ -38,6 +38,11 @@ def _database():
     return _db
 
 
+def get_database():
+    """검색 기록과 커뮤니티가 함께 사용하는 MongoDB 연결을 반환합니다."""
+    return _database()
+
+
 def record_search(query: str, properties: list[dict[str, Any]]) -> bool:
     db = _database()
     if db is None or not query.strip():

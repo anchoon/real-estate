@@ -1,6 +1,6 @@
 # 집찾기 허브
 
-부동산 실거래·매물과 법원 경매 정보를 한눈에 보는 FastAPI 대시보드입니다. 국토교통부 실거래 API 응답만 사용하고, 검색어·검색 결과 아파트·검색 횟수를 MongoDB에 저장할 수 있습니다. API 미설정 시에는 샘플 데이터를 만들지 않고 빈 결과를 표시합니다.
+부동산 실거래·매물과 법원 경매 정보를 한눈에 보는 FastAPI 대시보드입니다. 국토교통부 실거래 API 응답만 사용하고, 검색어·검색 결과·자유게시판 글을 MongoDB에 저장할 수 있습니다. API 미설정 시에는 샘플 데이터를 만들지 않고 빈 결과를 표시합니다.
 
 ## 실행
 
@@ -29,7 +29,9 @@ Render의 Web Service 설정에서 프로젝트 루트 디렉터리를 `real_est
 
 - 필수: `DATA_GO_KR_KEY` (실거래 API)
 - 지도 표시: `GOOGLE_MAPS_API_KEY` (Maps JavaScript API를 활성화하고 Cloudflare 사이트 referrer 제한 설정)
-- 선택: `MONGODB_URI`, `AUCTION_API_URL` 또는 `ONBID_BID_RESULT_API_URL`, `KAKAO_REST_API_KEY`
+- 게시판 저장: `MONGODB_URI` (MongoDB Atlas 연결 문자열)
+- 주소 검색·GPS 주소 확인: `KAKAO_REST_API_KEY` 또는 Google 지오코딩이 활성화된 `GOOGLE_MAPS_API_KEY`
+- 선택: `AUCTION_API_URL` 또는 `ONBID_BID_RESULT_API_URL`
 
 배포 후 `https://<Render 서비스 주소>/api/health`의 `api` 상태를 확인하세요. `satellite_map`이 `false`이면 Render의 `GOOGLE_MAPS_API_KEY` 설정/재배포를 확인하고, `transaction_api`가 `false`이면 `DATA_GO_KR_KEY`를 확인합니다.
 
@@ -56,11 +58,11 @@ FastAPI에는 Cloudflare 정적 도메인에서 호출할 수 있도록 CORS를 
 ## 무료 API 연결 위치
 
 - `app/api_config.py`: 모든 키·URL·타임아웃을 한곳에서 관리합니다.
-- `.env`: `GOOGLE_MAPS_API_KEY`에 Google Maps JavaScript API 키를 입력하면 위성지도와 실거래 마커 오버레이가 활성화됩니다.
+- `.env`: `GOOGLE_MAPS_API_KEY`에 Google Maps JavaScript API 키를 입력하면 건물·장소 라벨이 포함된 하이브리드 지도가 표시됩니다. 지도의 확대 수준과 Google 지도 데이터에 따라 라벨 표시 여부가 달라집니다.
 - `.env`: `DATA_GO_KR_KEY`에 공공데이터포털 일반 인증키를 입력합니다.
 - `.env`: `DEFAULT_LAWD_CD`에 시군구 법정동 코드 5자리, `DEFAULT_DEAL_YMD`에 조회 년월(YYYYMM)을 입력합니다. 예: 마포구 `11440`, 2026년 9월 `202609`.
 - `app/main.py`의 `fetch_official_data()`와 `_parse_transactions()`가 국토교통부 아파트 매매 실거래가 API 호출·변환을 담당합니다.
-- `.env`: `MONGODB_URI`에 MongoDB Atlas 무료 M0 연결 문자열을 입력합니다. 저장 컬렉션은 `search_logs`, `property_search_counts`입니다.
+- `.env`: `MONGODB_URI`에 MongoDB Atlas 연결 문자열을 입력합니다. 저장 컬렉션은 `search_logs`, `property_search_counts`, `community_posts`입니다.
 - `.env`: `AUCTION_API_URL`에는 공공데이터포털에서 승인받은 경매 API URL을 입력합니다. 비워 두면 `ONBID_BID_RESULT_API_URL`을 자동 사용합니다. 경매 상품의 응답 필드가 상품마다 달라 `app/main.py`의 `_parse_auctions()`에서 일반적인 필드명을 변환합니다.
 
 추천 검색어: 공공데이터포털에서 `국토교통부 아파트 매매 실거래가`, `법원 경매`, `부동산 경매`.
@@ -84,7 +86,20 @@ FastAPI에는 Cloudflare 정적 도메인에서 호출할 수 있도록 CORS를 
 GOOGLE_MAPS_API_KEY=발급받은_구글_지도_키
 ```
 
-지도는 위성 레이어로 표시되고, 국토부 실거래 응답의 주소를 Google Geocoder로 변환해 거래 마커를 표시합니다. Google 키가 없으면 지도 외의 검색·실거래 기능은 계속 작동하며 지도에는 설정 안내가 표시됩니다. Google Maps 키는 브라우저에 전달되므로 반드시 HTTP referrer 제한을 설정하세요.
+지도는 하이브리드 레이어(위성사진+지도 라벨)로 표시됩니다. GPS로 현재 위치의 주소와 동을 확인하고, 주소·건물 이름 검색 결과는 지도 중심 이동과 핀으로 연결됩니다. 주소 검색/GPS 주소 변환은 카카오 REST 키를 우선 사용하고, Google Maps 키가 있으면 대체 경로로 사용할 수 있습니다. Google 키가 없거나 지도 인증에 실패하면 OpenStreetMap 기본 지도를 표시합니다. 위성사진은 Google Maps 키가 필요하며, 브라우저에 전달되는 키에는 HTTP referrer 제한을 설정하세요.
+
+## 가까운 곳 찾아보기
+
+- 내 위치를 확인한 뒤 `학교`, `공원·놀이터`, `도서관`, `병원·약국`을 눌러 반경 1.5km 안의 장소를 찾습니다.
+- `GET /api/nearby-places?lat=37.5665&lon=126.978&category=school`로 조회합니다. `category`는 `school`, `park`, `library`, `medical` 중 하나입니다.
+- OpenStreetMap의 Overpass 데이터를 사용하며 별도 API 키는 필요하지 않습니다. 가까운 장소 최대 20곳을 거리순으로 보여주고, `지도 보기`로 해당 위치에 이동합니다.
+- 데이터 등록 여부와 Overpass 서비스 상태에 따라 결과가 없거나 조회가 늦을 수 있습니다. 장소 정보는 공식 운영시간·안전 인증 정보가 아니므로 방문 전 확인이 필요합니다.
+
+## 자유게시판
+
+- 게시판 탭에서 별명·제목·내용을 등록하며 글은 MongoDB `community_posts` 컬렉션에 시간순으로 누적됩니다.
+- `GET /api/community/posts`로 글을 읽고 `POST /api/community/posts`로 새 글을 등록합니다. DB가 설정되지 않으면 화면에 설정 안내가 표시됩니다.
+- 현재 게시판은 로그인 없이 공개됩니다. 운영 배포 전에는 로그인·신고/삭제·스팸 방지 정책을 추가하고, 개인정보나 집 주소를 게시하지 않도록 이용자에게 안내하세요.
 
 ## 지역 조회 방식
 
