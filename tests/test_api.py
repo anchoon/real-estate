@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+import app.main as main
 from app.main import _location_codes, _parse_transactions, build_summary, app
 
 client = TestClient(app)
@@ -76,3 +77,23 @@ def test_frontend_api_config_script_is_available():
     response = client.get("/api-config.js")
     assert response.status_code == 200
     assert "REAL_ESTATE_API_URL" in response.text
+
+
+def test_news_returns_rss_items_and_replaces_query(monkeypatch):
+    requested = {}
+
+    class FakeResponse:
+        content = b"<rss><channel><item><title>\xeb\xb6\x80\xeb\x8f\x99\xec\x82\xb0 \xeb\x89\xb4\xec\x8a\xa4</title><link>https://example.com/news</link><pubDate>today</pubDate></item></channel></rss>"
+
+        def raise_for_status(self):
+            return None
+
+    def fake_get(url, **kwargs):
+        requested["url"] = url
+        return FakeResponse()
+
+    monkeypatch.setattr(main.httpx, "get", fake_get)
+    items = main.load_news("마포")
+
+    assert items == [{"title": "부동산 뉴스", "link": "https://example.com/news", "date": "today"}]
+    assert "q=%EB%A7%88%ED%8F%AC" in requested["url"]

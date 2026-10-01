@@ -6,7 +6,7 @@ from xml.etree import ElementTree
 
 import httpx
 from dotenv import load_dotenv
-from urllib.parse import unquote
+from urllib.parse import parse_qsl, unquote, urlencode, urlsplit, urlunsplit
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -233,6 +233,21 @@ def build_summary(items: list[dict[str, Any]]) -> dict[str, Any]:
 def load_news(query: str = "부동산") -> list[dict[str, str]]:
     if not API.news_rss_url:
         return []
+    try:
+        parts = urlsplit(API.news_rss_url)
+        params = dict(parse_qsl(parts.query, keep_blank_values=True))
+        if "q" in params:
+            params["q"] = query
+        url = urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(params), parts.fragment))
+        response = httpx.get(url, timeout=API.timeout_seconds, headers={"User-Agent": "real-estate-hub/1.0"})
+        response.raise_for_status()
+        root = ElementTree.fromstring(response.content)
+        return [
+            {"title": item.findtext("title", ""), "link": item.findtext("link", ""), "date": item.findtext("pubDate", "")}
+            for item in root.findall(".//item")[:6]
+        ]
+    except (httpx.HTTPError, ElementTree.ParseError, ValueError):
+        return []
 
 
 def reverse_geocode(lat: float, lon: float) -> dict[str, str] | None:
@@ -275,17 +290,6 @@ def nearby(
         "coordinates": {"lat": lat, "lon": lon},
         "nearby_dongs": [],
     }
-    try:
-        url = API.news_rss_url
-        if "q=" in url and query:
-            import urllib.parse
-            url = url.split("q=", 1)[0] + "q=" + urllib.parse.quote(query) + ("&" + url.split("&", 1)[1] if "&" in url else "")
-        response = httpx.get(url, timeout=API.timeout_seconds, headers={"User-Agent": "real-estate-hub/1.0"})
-        response.raise_for_status()
-        root = ElementTree.fromstring(response.content)
-        return [{"title": item.findtext("title", ""), "link": item.findtext("link", ""), "date": item.findtext("pubDate", "")} for item in root.findall(".//item")[:6]]
-    except (httpx.HTTPError, ElementTree.ParseError):
-        return []
 
 
 @app.get("/", include_in_schema=False)

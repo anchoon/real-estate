@@ -52,7 +52,7 @@ class ApiConfig:
     # 법원/공공데이터 경매 API URL을 발급받은 상품 명세로 교체하세요.
     # 공공데이터포털에서 '법원 경매', '부동산 경매'로 검색할 수 있습니다.
     # 실제 오퍼레이션 URL을 별도로 확인하기 전까지 온비드는 비활성화합니다.
-    auction_url: str = _env("AUCTION_API_URL")
+    auction_url: str = _env("AUCTION_API_URL", _env("ONBID_BID_RESULT_API_URL"))
 
     # 실거래 조회 기본 지역코드(시군구 5자리)와 계약년월(YYYYMM)
     lawd_cd: str = _env("DEFAULT_LAWD_CD", "11440")

@@ -23,6 +23,16 @@ uvicorn app.main:app --reload
 
 Cloudflare 정적 주소에는 FastAPI 라우트(`/api/regions`, `/api/dashboard` 등)가 존재하지 않습니다. 따라서 FastAPI를 Render, Railway, Fly.io 또는 별도 서버에 배포한 뒤 `app/static/api-config.js`의 `window.REAL_ESTATE_API_URL`에 그 주소를 입력해야 합니다.
 
+### Render 환경 변수
+
+Render의 Web Service 설정에서 프로젝트 루트 디렉터리를 `real_estate_hub`로 지정하고, 빌드 명령 `pip install -r requirements.txt`, 시작 명령 `uvicorn app.main:app --host 0.0.0.0 --port $PORT`를 사용합니다. 로컬 `.env` 파일은 Render에 자동 복사되지 않으므로 Render 대시보드의 Environment에 필요한 값을 별도로 등록하세요.
+
+- 필수: `DATA_GO_KR_KEY` (실거래 API)
+- 지도 표시: `GOOGLE_MAPS_API_KEY` (Maps JavaScript API를 활성화하고 Cloudflare 사이트 referrer 제한 설정)
+- 선택: `MONGODB_URI`, `AUCTION_API_URL` 또는 `ONBID_BID_RESULT_API_URL`, `KAKAO_REST_API_KEY`
+
+배포 후 `https://<Render 서비스 주소>/api/health`의 `api` 상태를 확인하세요. `satellite_map`이 `false`이면 Render의 `GOOGLE_MAPS_API_KEY` 설정/재배포를 확인하고, `transaction_api`가 `false`이면 `DATA_GO_KR_KEY`를 확인합니다.
+
 예:
 
 ```javascript
