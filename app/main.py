@@ -477,7 +477,7 @@ def add_community_post(post: CommunityPostInput) -> dict[str, Any]:
 def home() -> FileResponse:
     return FileResponse(BASE_DIR / "static" / "index.html")
 
-
+ 
 @app.get("/styles.css", include_in_schema=False)
 def styles() -> FileResponse:
     return FileResponse(BASE_DIR / "static" / "styles.css", media_type="text/css")
