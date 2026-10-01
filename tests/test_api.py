@@ -201,6 +201,43 @@ def test_nearby_places_returns_sorted_openstreetmap_results(monkeypatch):
     assert request["url"].startswith("https://overpass-api.de/")
 
 
+def test_nearby_places_uses_fallback_when_primary_overpass_is_unavailable(monkeypatch):
+    requested_urls = []
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"elements": []}
+
+    def fake_post(url, **kwargs):
+        requested_urls.append(url)
+        if len(requested_urls) == 1:
+            return main.httpx.Response(502, request=main.httpx.Request("POST", url))
+        return FakeResponse()
+
+    monkeypatch.setattr(main.httpx, "post", fake_post)
+    response = client.get("/api/nearby-places", params={"lat": 35.127766, "lon": 129.083923, "category": "school"})
+
+    assert response.status_code == 200
+    assert requested_urls == list(main.OVERPASS_ENDPOINTS[:2])
+
+
+def test_nearby_places_returns_502_when_all_overpass_servers_fail(monkeypatch):
+    requested_urls = []
+
+    def fake_post(url, **kwargs):
+        requested_urls.append(url)
+        return main.httpx.Response(503, request=main.httpx.Request("POST", url))
+
+    monkeypatch.setattr(main.httpx, "post", fake_post)
+    response = client.get("/api/nearby-places", params={"lat": 35.127766, "lon": 129.083923, "category": "school"})
+
+    assert response.status_code == 502
+    assert requested_urls == list(main.OVERPASS_ENDPOINTS)
+
+
 def test_nearby_places_rejects_unknown_category():
     response = client.get("/api/nearby-places", params={"lat": 37.5665, "lon": 126.978, "category": "mall"})
 

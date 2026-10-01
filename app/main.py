@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from math import asin, cos, radians, sin, sqrt
 from pathlib import Path
 from typing import Any
@@ -48,6 +49,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
+logger = logging.getLogger(__name__)
 
 REGIONS = [
     {"code": "11110", "name": "서울 종로구"}, {"code": "11140", "name": "서울 중구"},
@@ -351,7 +353,12 @@ PLACE_CATEGORIES = {
     "library": {"tag": "amenity", "values": "library", "label": "도서관"},
     "medical": {"tag": "amenity", "values": "hospital|clinic|doctors|pharmacy", "label": "병원·약국"},
 }
-
+OVERPASS_ENDPOINTS = (
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
+)
+ 
 
 def _distance_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> int:
     """두 좌표 사이의 거리를 미터로 계산합니다."""
@@ -403,16 +410,21 @@ def nearby_places(
         for element in ("node", "way", "relation")
     )
     query = f"[out:json][timeout:15];({clauses});out center 60;"
-    try:
-        response = httpx.post(
-            "https://overpass-api.de/api/interpreter",
-            data={"data": query},
-            headers={"User-Agent": "real-estate-hub/1.0 (nearby places)"},
-            timeout=max(API.timeout_seconds, 15),
-        )
-        response.raise_for_status()
-        items = _parse_nearby_places(response.json(), lat, lon, category)
-    except (httpx.HTTPError, ValueError, KeyError, TypeError):
+    items = None
+    for endpoint in OVERPASS_ENDPOINTS:
+        try:
+            response = httpx.post(
+                endpoint,
+                data={"data": query},
+                headers={"User-Agent": "real-estate-hub/1.0 (nearby places)"},
+                timeout=max(API.timeout_seconds, 15),
+            )
+            response.raise_for_status()
+            items = _parse_nearby_places(response.json(), lat, lon, category)
+            break
+        except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
+            logger.warning("Overpass 요청 실패 (%s): %s", endpoint, exc)
+    if items is None:
         raise HTTPException(status_code=502, detail="주변 장소를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.") from None
     return {
         "items": items,
