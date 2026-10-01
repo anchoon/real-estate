@@ -33,6 +33,18 @@ Render의 Web Service 설정에서 프로젝트 루트 디렉터리를 `real_est
 - 주소 검색·GPS 주소 확인: `KAKAO_REST_API_KEY` 또는 Google 지오코딩이 활성화된 `GOOGLE_MAPS_API_KEY`
 - 선택: `AUCTION_API_URL` 또는 `ONBID_BID_RESULT_API_URL`
 
+### PROPERTY INTELLIGENCE 확장
+
+기존 화면과 API를 유지하면서 `/intelligence` 및 `/api/v1/*`에 통합검색·온비드 API 어댑터를 추가했습니다. 온비드는 코드의 API 키가 아니라 Render 환경변수에서 설정하며, 기본적으로 비활성화되어 있습니다.
+
+- 온비드 상품별 활용 신청 후 `ONBID_API_KEY`와 `ONBID_ENABLED=true` 설정
+- 키를 별도로 지정하지 않으면 기존 `DATA_GO_KR_KEY`를 사용할 수 있지만, `ONBID_ENABLED=true` 전에는 외부 호출하지 않습니다.
+- 부동산 목록은 공식 명세의 `prptDivCd`, `pvctTrgtYn` 조건이 필요합니다. 잘 모르는 코드값은 넣지 말고 온비드 상품 가이드를 확인하세요.
+- 법원 데이터는 사법정보공유포털의 이용권한과 경매 상세 제공 범위가 확인되기 전 비활성화되어 있습니다. 법원 사이트 크롤링은 하지 않습니다.
+- 신규 저장소는 `onbid_items`, `onbid_notices`, `onbid_bid_information`, `onbid_bid_results`, `court_auction`, `court_auction_events`, `real_estate_transactions`로 분리되며 기존 검색·게시판 컬렉션은 변경하지 않습니다.
+- `GET /api/v1/sources`에서 각 공급자의 설정 상태, `GET /api/v1/search`에서 실거래와 설정된 온비드 결과를 확인할 수 있습니다.
+- 실거래 API의 현재 데이터에 좌표가 없으면 지도 마커로 표시하지 않습니다. 주소 좌표 보강은 결과 출처를 구분해 후속 연결해야 합니다.
+
 배포 후 `https://<Render 서비스 주소>/api/health`의 `api` 상태를 확인하세요. `satellite_map`이 `false`이면 Render의 `GOOGLE_MAPS_API_KEY` 설정/재배포를 확인하고, `transaction_api`가 `false`이면 `DATA_GO_KR_KEY`를 확인합니다.
 
 예:

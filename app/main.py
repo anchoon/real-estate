@@ -36,6 +36,11 @@ try:
 except ImportError:
     from community_store import create_post, list_posts
 
+try:
+    from .routers.intelligence import router as intelligence_router
+except ImportError:
+    from routers.intelligence import router as intelligence_router
+
 app = FastAPI(
     title="집찾기 허브 API",
     description="공식·허가된 부동산 실거래와 경매 데이터를 한 화면에 제공하는 API",
@@ -49,6 +54,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
+app.include_router(intelligence_router)
 logger = logging.getLogger(__name__)
 
 REGIONS = [
@@ -476,8 +482,13 @@ def add_community_post(post: CommunityPostInput) -> dict[str, Any]:
 @app.get("/", include_in_schema=False)
 def home() -> FileResponse:
     return FileResponse(BASE_DIR / "static" / "index.html")
-
  
+
+@app.get("/intelligence", include_in_schema=False)
+def property_intelligence() -> FileResponse:
+    return FileResponse(BASE_DIR / "static" / "intelligence.html")
+
+  
 @app.get("/styles.css", include_in_schema=False)
 def styles() -> FileResponse:
     return FileResponse(BASE_DIR / "static" / "styles.css", media_type="text/css")

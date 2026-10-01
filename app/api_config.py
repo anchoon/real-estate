@@ -39,6 +39,11 @@ class ApiConfig:
     # 무료 공공데이터 API 키: https://www.data.go.kr/
     data_go_kr_key: str = _env("DATA_GO_KR_KEY")
 
+    # 온비드는 별도 API 상품 활용 신청 후 켜세요. 기본값은 비활성입니다.
+    # 전용 키가 없으면 기존 공공데이터포털 키를 재사용할 수 있습니다.
+    onbid_api_key: str = _env("ONBID_API_KEY", _env("DATA_GO_KR_KEY"))
+    onbid_enabled: bool = _env("ONBID_ENABLED", "false").lower() == "true"
+
     # 국토교통부 아파트 매매 실거래가 API
     # 새 설정명(APT_TRADE_DETAIL_API_URL)을 우선 사용하고,
     # 기존 설정명(TRANSACTION_API_URL)도 호환합니다.
@@ -85,6 +90,9 @@ def is_configured() -> dict[str, bool]:
     return {
         "transaction_api": bool(API.data_go_kr_key),
         "auction_api": bool(API.data_go_kr_key and API.auction_url),
+        "onbid_api": bool(API.onbid_enabled and API.onbid_api_key),
+        # 법원 API의 이용권한과 경매 데이터 명세가 확인되기 전에는 항상 비활성입니다.
+        "court_auction_api": False,
         "search_database": bool(API.mongo_uri),
         "gps_reverse_geocoding": bool(API.kakao_rest_api_key or API.google_maps_api_key),
         "satellite_map": bool(API.google_maps_api_key),

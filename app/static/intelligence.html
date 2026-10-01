@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PROPERTY INTELLIGENCE</title>
+  <link rel="stylesheet" href="/static/intelligence.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+</head>
+<body>
+  <main class="pi-shell">
+    <header class="pi-header">
+      <a class="pi-brand" href="/">⌂ <span>PROPERTY<br>INTELLIGENCE</span></a>
+      <a class="pi-back" href="/">기존 동네 화면으로 돌아가기</a>
+    </header>
+    <section class="pi-hero">
+      <p class="pi-eyebrow">REAL ESTATE · COURT AUCTION · ONBID</p>
+      <h1>한 곳에서 비교하는<br><em>부동산 인텔리전스</em></h1>
+      <p>실거래와 공식 경·공매 데이터가 준비된 범위에서 함께 검색됩니다.</p>
+    </section>
+    <section class="pi-grid">
+      <article class="pi-card pi-search-card">
+        <div class="pi-card-heading"><div><p class="pi-eyebrow">DISCOVER</p><h2>통합 검색</h2></div><span id="result-count" class="pi-count">검색 전</span></div>
+        <form id="search-form" class="pi-form">
+          <label>검색어<input id="query" placeholder="예: 부산 남구 아파트"></label>
+          <div class="pi-form-row">
+            <label>시군구 코드<input id="lawd-code" value="11440" inputmode="numeric" maxlength="5"></label>
+            <label>실거래 조회월<input id="deal-month" value="202609" inputmode="numeric" maxlength="6"></label>
+          </div>
+          <label>읍·면·동(선택)<input id="dong" placeholder="예: 대연동"></label>
+          <details class="pi-advanced">
+            <summary>온비드 API 검색조건 (신청 후 입력)</summary>
+            <p>공식 API 명세의 코드표를 확인한 뒤 입력하세요. 임의의 코드는 사용하지 않습니다.</p>
+            <div class="pi-form-row">
+              <label>재산유형 코드<input id="property-code" placeholder="prptDivCd"></label>
+              <label>수의계약 가능 여부<input id="private-contract-code" placeholder="pvctTrgtYn"></label>
+            </div>
+          </details>
+          <button class="pi-primary" type="submit">조건으로 검색</button>
+        </form>
+        <div class="pi-source-list" id="source-status" aria-live="polite"><p>데이터 연결 상태를 확인하고 있습니다.</p></div>
+      </article>
+      <article class="pi-card pi-map-card">
+        <div class="pi-card-heading"><div><p class="pi-eyebrow">MAP VIEW</p><h2>물건 지도</h2></div><span id="map-note">좌표가 제공된 결과만 표시</span></div>
+        <div id="property-map" role="region" aria-label="부동산 통합 지도"></div>
+        <p class="pi-footnote">현재 실거래 API 응답에는 좌표가 없을 수 있습니다. 주소 좌표 보강은 출처와 정확도 확인 후 적용합니다.</p>
+      </article>
+    </section>
+    <section class="pi-card pi-results-card">
+      <div class="pi-card-heading"><div><p class="pi-eyebrow">SEARCH RESULTS</p><h2>검색 결과</h2></div><div class="pi-filters" role="group" aria-label="검색 결과 종류"><button class="active" data-filter="all">전체</button><button data-filter="real_estate">실거래</button><button data-filter="onbid">온비드</button><button data-filter="court_auction" disabled title="공식 경매 API 확인 후 제공">법원경매 · 준비 중</button></div></div>
+      <div id="result-list" class="pi-results"><p class="pi-empty">검색 조건을 입력하고 검색하세요.</p></div>
+    </section>
+    <section class="pi-card pi-stats-card">
+      <div class="pi-card-heading"><div><p class="pi-eyebrow">OUTCOME ANALYTICS</p><h2>낙찰·매각 통계</h2></div><span class="pi-badge">공식 결과 필드 연결 대기</span></div>
+      <div id="statistics"><p class="pi-empty">API 결과 필드를 확인한 뒤 낙찰가율·유찰 횟수·지역별 통계를 계산합니다. 현재는 임의의 통계를 표시하지 않습니다.</p></div>
+    </section>
+    <footer class="pi-footer"><span>데이터 출처별 원본을 분리 보존합니다.</span><a href="/docs">API 문서</a></footer>
+  </main>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/static/js/intelligence.js"></script>
+</body>
+</html>
